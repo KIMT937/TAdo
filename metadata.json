@@ -1,0 +1,8 @@
+{
+  "name": "타도! 폭주족",
+  "description": "뱀파이어 서바이벌 스타일의 2D 탑다운 자동차 액션 생존 게임. 도로 위의 폭주족을 격파하고 차량을 진화시키세요!",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>타도! 폭주족 - 2D 자동차 서바이벌 액션</title>
+    <meta name="description" content="뱀파이어 서바이벌 스타일의 2D 탑다운 자동차 액션 생존 게임. 도로 위의 폭주족을 격파하고 차량을 진화시키세요!" />
+    <meta property="og:title" content="타도! 폭주족 - 2D 자동차 서바이벌 액션" />
+    <meta property="og:description" content="뱀파이어 서바이벌 스타일의 2D 탑다운 자동차 액션 생존 게임. 도로 위의 폭주족을 격파하고 차량을 진화시키세요!" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body, html {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #020617;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #f8fafc;
+      }
+      #game-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #020617;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: #0f172a;
+        cursor: crosshair;
+      }
+      /* Top XP Progress Bar */
+      .xp-progress-bar-wrap {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 7px;
+        background: #1e293b;
+        z-index: 30;
+      }
+      .xp-progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #10b981, #14b8a6, #06b6d4);
+        box-shadow: 0 0 10px rgba(52, 211, 153, 0.85);
+        transition: width 0.15s ease-out;
+      }
+      /* Highway Fork Banner */
+      #banner-fork {
+        display: none;
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(16, 185, 129, 0.6);
+        color: #6ee7b7;
+        padding: 4px 14px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: bold;
+        z-index: 25;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        animation: bounce 2s infinite;
+      }
+      /* Boss Warning Banner */
+      #banner-boss-warning {
+        display: none;
+        position: absolute;
+        top: 14px;
+        left: 0;
+        right: 0;
+        justify-content: center;
+        z-index: 40;
+        pointer-events: none;
+        animation: pulse 1s infinite;
+      }
+      .boss-warning-box {
+        background: rgba(220, 38, 38, 0.95);
+        color: #ffffff;
+        font-weight: 900;
+        padding: 8px 24px;
+        border-radius: 9999px;
+        border: 2px solid #fca5a5;
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.95);
+        font-size: 13px;
+        letter-spacing: 0.5px;
+      }
+      /* Boss HP Bar */
+      #boss-hp-container {
+        display: none;
+        position: absolute;
+        top: 48px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 30;
+        width: 320px;
+        max-width: 90vw;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(8px);
+        padding: 8px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(239, 68, 68, 0.6);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+        flex-direction: column;
+        gap: 4px;
+      }
+      .boss-hp-track {
+        width: 100%;
+        height: 12px;
+        background: #020617;
+        border-radius: 9999px;
+        overflow: hidden;
+        border: 1px solid #450a0a;
+      }
+      .boss-hp-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #dc2626, #f97316);
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+        transition: width 0.1s ease-out;
+      }
+      /* Top HUD Layout */
+      .hud-header {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        right: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+        z-index: 20;
+      }
+      .hud-card {
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        padding: 10px 14px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+      /* Left Gauges */
+      .hud-left {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 210px;
+      }
+      .gauge-row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .gauge-track {
+        width: 100%;
+        height: 10px;
+        background: #020617;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .gauge-fill-hp {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #ef4444, #f87171);
+        transition: width 0.1s linear;
+      }
+      .gauge-fill-nitro {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #0284c7, #38bdf8);
+        transition: width 0.05s linear;
+      }
+      /* Right Score Card */
+      .hud-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+      }
+      .score-box {
+        text-align: right;
+        min-width: 170px;
+        border-color: rgba(56, 189, 248, 0.4);
+      }
+      .btn-toolbar {
+        display: flex;
+        gap: 6px;
+      }
+      .btn-icon {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid #334155;
+        color: #f8fafc;
+        border-radius: 10px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+        transition: background 0.15s, transform 0.1s;
+      }
+      .btn-icon:hover {
+        background: #1e293b;
+        transform: translateY(-1px);
+      }
+      /* Mobile Controls */
+      .mobile-controls {
+        display: none;
+        position: absolute;
+        bottom: 24px;
+        left: 20px;
+        right: 20px;
+        justify-content: space-between;
+        align-items: flex-end;
+        z-index: 25;
+        pointer-events: none;
+      }
+      @media (max-width: 768px) {
+        .mobile-controls { display: flex; }
+      }
+      #touch-joystick {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.65);
+        border: 2px solid rgba(56, 189, 248, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        touch-action: none;
+      }
+      #joystick-knob {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #38bdf8, #2563eb);
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+        pointer-events: none;
+      }
+      #btn-touch-boost {
+        width: 78px;
+        height: 78px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0284c7, #2563eb);
+        border: 2px solid #38bdf8;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
+        color: white;
+        font-weight: 900;
+        font-size: 13px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        touch-action: none;
+        cursor: pointer;
+      }
+      #btn-touch-boost:active {
+        transform: scale(0.94);
+        background: linear-gradient(135deg, #0369a1, #1d4ed8);
+      }
+      /* Modals */
+      .modal-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.88);
+        backdrop-filter: blur(12px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 50;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        padding: 16px;
+      }
+      .modal-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal-card {
+        background: #0f172a;
+        border: 2px solid #334155;
+        border-radius: 24px;
+        padding: 24px;
+        width: 100%;
+        max-width: 480px;
+        text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+      }
+      .upgrade-card-btn {
+        background: #1e293b;
+        border: 1px solid #3b82f6;
+        border-radius: 14px;
+        padding: 12px 14px;
+        color: #f8fafc;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        margin-top: 10px;
+        transition: transform 0.1s, background 0.15s, border-color 0.15s;
+      }
+      .upgrade-card-btn:hover {
+        background: #334155;
+        border-color: #60a5fa;
+        transform: translateY(-2px);
+      }
+      .card-shortcut {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: #0f172a;
+        color: #94a3b8;
+        font-size: 11px;
+        border-radius: 6px;
+        font-family: monospace;
+      }
+      .card-icon {
+        font-size: 26px;
+      }
+      .card-badge {
+        font-size: 10px;
+        background: #334155;
+        color: #cbd5e1;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .btn-action-primary {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: filter 0.15s, transform 0.1s;
+      }
+      .btn-action-primary:hover {
+        filter: brightness(1.15);
+      }
+      .rank-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid #1e293b;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      .rank-item.top1 {
+        background: rgba(120, 53, 15, 0.35);
+        border-color: #d97706;
+        color: #fde68a;
+      }
+      .rank-item.top2 {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: #64748b;
+        color: #e2e8f0;
+      }
+      .rank-item.top3 {
+        background: rgba(124, 45, 18, 0.3);
+        border-color: #ea580c;
+        color: #fed7aa;
+      }
+      .badge-cleared {
+        font-size: 9px;
+        background: rgba(245, 158, 11, 0.2);
+        color: #facc15;
+        border: 1px solid rgba(245, 158, 11, 0.5);
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+      @keyframes bounce {
+        0%, 100% { transform: translate(-50%, 0); }
+        50% { transform: translate(-50%, -6px); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- XP Progress Bar -->
+      <div class="xp-progress-bar-wrap">
+        <div id="xp-fill" class="xp-progress-bar-fill"></div>
+      </div>
+
+      <!-- Highway Road Fork Notice -->
+      <div id="banner-fork">🛣️ 도로 차선 분기 구간 (좌측/우측 갈래 선택)</div>
+
+      <!-- Boss Warning Banner -->
+      <div id="banner-boss-warning">
+        <div id="banner-boss-text" class="boss-warning-box">🚨 경고! 보스 탈것 출현!</div>
+      </div>
+
+      <!-- Boss Health Bar -->
+      <div id="boss-hp-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:900; color:#f87171;">
+          <span id="boss-name-text">보스 탈것</span>
+          <span id="boss-ratio-text" style="color:#facc15; font-family:monospace;">100%</span>
+        </div>
+        <div class="boss-hp-track">
+          <div id="boss-hp-fill" class="boss-hp-fill"></div>
+        </div>
+      </div>
+
+      <!-- Top HUD Header -->
+      <header class="hud-header">
+        <!-- 1. 좌측 상단: 차량 체력바, 부스터 게이지, 등급 -->
+        <div class="hud-card hud-left">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e293b; padding-bottom:5px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span id="hud-tier-dot" style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></span>
+              <span id="hud-tier-name" style="font-size:12px; font-weight:900; color:#f8fafc;">Lv.1 오토바이</span>
+            </div>
+            <span id="hud-lvl-badge" style="font-size:10px; background:#1e293b; color:#38bdf8; font-weight:bold; padding:2px 6px; border-radius:4px;">Lv.1</span>
+          </div>
+
+          <!-- 체력바 -->
+          <div class="gauge-row">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold;">
+              <span style="color:#f87171; display:flex; align-items:center; gap:4px;">
+                체력
+                <span id="hud-shield-badge" style="display:none; font-size:9px; background:#082f49; color:#38bdf8; border:1px solid #0284c7; padding:0 4px; border-radius:4px;">쉴드</span>
+              </span>
+              <span id="hp-text" style="color:#94a3b8;">100 / 100</span>
+            </div>
+            <div class="gauge-track">
+              <div id="hp-fill" class="gauge-fill-hp"></div>
+            </div>
+          </div>
+
+          <!-- 부스터 게이지 -->
+          <div class="gauge-row">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:bold;">
+              <span style="color:#38bdf8;">부스터 (Space)</span>
+              <span id="nitro-text" style="color:#94a3b8;">100%</span>
+            </div>
+            <div class="gauge-track">
+              <div id="nitro-fill" class="gauge-fill-nitro"></div>
+            </div>
+          </div>
+
+          <!-- 보스 소탕 미션 현황 (2회 처치 시 완료) -->
+          <div style="display:flex; justify-content:space-between; font-size:10px; font-weight:bold; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); padding:3px 6px; border-radius:6px; color:#fde68a;">
+            <span>보스 소탕 미션</span>
+            <span id="hud-boss-mission" style="color:#facc15;">0 / 2 처치</span>
+          </div>
+        </div>
+
+        <!-- 2. 상단 중앙: 탈것 시리즈 & 타이머 & 킬수 -->
+        <div class="hud-card" style="display:flex; align-items:center; gap:12px; pointer-events:auto;">
+          <div style="text-align:center;">
+            <div style="font-size:9px; font-weight:bold; color:#94a3b8;">탈것 시리즈</div>
+            <div id="hud-series" style="font-size:11px; font-weight:900; color:#38bdf8;">시작 탈것</div>
+          </div>
+          <div style="width:1px; height:20px; background:#334155;"></div>
+          <div style="text-align:center;">
+            <div style="font-size:9px; font-weight:bold; color:#94a3b8;">생존 시간</div>
+            <div id="hud-time" style="font-size:16px; font-weight:900; color:#facc15;">00:00</div>
+          </div>
+          <div style="width:1px; height:20px; background:#334155;"></div>
+          <div style="text-align:center;">
+            <div style="font-size:9px; font-weight:bold; color:#94a3b8;">처치 수</div>
+            <div id="hud-kills" style="font-size:16px; font-weight:900; color:#f87171;">0대</div>
+          </div>
+        </div>
+
+        <!-- 3. 우측 상단: 점수판 (일반 5점 / 보스 100점) & 툴바 -->
+        <div class="hud-right">
+          <div class="hud-card score-box">
+            <div style="font-size:10px; font-weight:bold; color:#94a3b8;">점수 (일반+5 / 보스+100)</div>
+            <div id="hud-score" style="font-size:22px; font-weight:900; color:#38bdf8;">0 Pts</div>
+          </div>
+
+          <div class="btn-toolbar">
+            <button id="btn-ranking-open" class="btn-icon" title="명예의 전당 (Top 10 랭킹)">🏆</button>
+            <button id="btn-sound-toggle" class="btn-icon" title="음소거 토글">🔊</button>
+            <button id="btn-pause-toggle" class="btn-icon" title="일시정지 (P)">⏸</button>
+            <button id="btn-help" class="btn-icon" title="도움말">❓</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Game Canvas -->
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Mobile Touch Controls -->
+      <div class="mobile-controls">
+        <div id="touch-joystick">
+          <div id="joystick-knob"></div>
+        </div>
+        <div id="btn-touch-boost">
+          <span style="font-size:16px;">⚡</span>
+          <span>부스터!</span>
+        </div>
+      </div>
+
+      <!-- Level Up Modal -->
+      <div id="modal-levelup" class="modal-overlay">
+        <div class="modal-card" style="border-color:#f59e0b;">
+          <div style="font-size:11px; font-weight:900; letter-spacing:1px; color:#f59e0b; background:rgba(245,158,11,0.15); display:inline-block; padding:3px 12px; border-radius:9999px; margin-bottom:6px;">
+            ✨ LEVEL UP!
+          </div>
+          <h2 style="font-size:24px; font-weight:900; color:#f8fafc;">차량 진화 및 장비 강화</h2>
+          <div id="modal-tier-announce" style="font-size:13px; color:#38bdf8; font-weight:bold; margin-top:4px;"></div>
+          <div id="levelup-cards-container" style="margin-top:14px;"></div>
+          <div style="font-size:11px; color:#64748b; margin-top:12px;">키보드 숫자키 [1], [2], [3] 으로도 바로 선택 가능합니다.</div>
+        </div>
+      </div>
+
+      <!-- Victory Modal (보스 2회 처치 시 완료 & 랭킹 등록) -->
+      <div id="modal-victory" class="modal-overlay">
+        <div class="modal-card" style="border-color:#facc15;">
+          <div style="font-size:36px; margin-bottom:4px;">🏆</div>
+          <h2 style="font-size:22px; font-weight:900; color:#facc15;">미션 완수! 폭주족 소탕 성공!</h2>
+          <p style="font-size:12px; color:#94a3b8; margin:6px 0 12px 0;">
+            폭주족 리더의 방탄차와 조커의 대형 몬스터 트럭을 모두 격파하여 도로의 평화를 되찾았습니다!
+          </p>
+
+          <div style="background:#020617; border:1px solid #1e293b; border-radius:14px; padding:12px; text-align:left; font-size:13px; display:flex; flex-direction:column; gap:5px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between;"><span>최종 점수:</span><b id="vic-score" style="color:#38bdf8; font-size:15px;">0 Pts</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>소요 시간:</span><b id="vic-time" style="color:#facc15;">00:00</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>처치 수:</span><b id="vic-kills" style="color:#f87171;">0대</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>최종 탈것:</span><b id="vic-tier" style="color:#34d399;">-</b></div>
+          </div>
+
+          <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <input id="input-name-vic" type="text" placeholder="명예의 전당 닉네임" maxlength="10" style="flex:1; padding:10px; border-radius:10px; border:1px solid #334155; background:#020617; color:#fff; text-align:center; font-size:13px;" />
+            <button id="btn-save-rank-vic" class="btn-action-primary" style="padding:10px 16px;">랭킹 등록</button>
+          </div>
+          <button id="btn-vic-restart" class="btn-action-primary" style="width:100%; background:#334155;">다시 출격하기</button>
+        </div>
+      </div>
+
+      <!-- Game Over Modal -->
+      <div id="modal-gameover" class="modal-overlay">
+        <div class="modal-card" style="border-color:#ef4444;">
+          <div style="font-size:36px; margin-bottom:4px;">💥</div>
+          <h2 style="font-size:24px; font-weight:900; color:#ef4444;">차량 대파 (GAME OVER)</h2>
+          <p style="font-size:12px; color:#94a3b8; margin:6px 0 12px 0;">폭주족들의 습격에 차량이 파괴되었습니다.</p>
+
+          <div style="background:#020617; border:1px solid #1e293b; border-radius:14px; padding:12px; text-align:left; font-size:13px; display:flex; flex-direction:column; gap:5px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between;"><span>최종 점수:</span><b id="final-score" style="color:#38bdf8; font-size:15px;">0 Pts</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>버틴 시간:</span><b id="final-time" style="color:#facc15;">00:00</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>폭주족 격파:</span><b id="final-kills" style="color:#f87171;">0대</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>보스 격파:</span><b id="final-bosses" style="color:#fde68a;">0 / 2 처치</b></div>
+          </div>
+
+          <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <input id="input-name-gameover" type="text" placeholder="명예의 전당 닉네임" maxlength="10" style="flex:1; padding:10px; border-radius:10px; border:1px solid #334155; background:#020617; color:#fff; text-align:center; font-size:13px;" />
+            <button id="btn-save-rank-gameover" class="btn-action-primary" style="padding:10px 16px; background:#dc2626;">기록 저장</button>
+          </div>
+          <button id="btn-restart" class="btn-action-primary" style="width:100%;">다시 출격하기</button>
+        </div>
+      </div>
+
+      <!-- Hall of Fame Ranking Modal -->
+      <div id="modal-ranking" class="modal-overlay">
+        <div class="modal-card" style="border-color:#f59e0b; max-width:440px;">
+          <h2 style="font-size:20px; font-weight:900; color:#facc15; margin-bottom:12px;">🏆 명예의 전당 (Top 10 랭킹)</h2>
+          <div id="rankings-list" style="max-height:280px; overflow-y:auto; padding-right:4px;"></div>
+          <button id="btn-close-ranking" class="btn-action-primary" style="width:100%; margin-top:12px; background:#334155;">닫기</button>
+        </div>
+      </div>
+
+      <!-- Pause Modal -->
+      <div id="modal-pause" class="modal-overlay">
+        <div class="modal-card" style="max-width:320px;">
+          <h2 style="font-size:22px; font-weight:900; color:#facc15; margin-bottom:6px;">일시정지 (PAUSED)</h2>
+          <p style="font-size:12px; color:#94a3b8; margin-bottom:14px;">잠시 숨을 고르고 도로 상황을 점검하세요.</p>
+          <button id="btn-resume" class="btn-action-primary" style="width:100%;">주행 계속하기</button>
+        </div>
+      </div>
+
+      <!-- Help / Guide Modal -->
+      <div id="modal-help" class="modal-overlay">
+        <div class="modal-card" style="text-align:left; max-width:440px;">
+          <h2 style="font-size:18px; font-weight:900; color:#38bdf8; margin-bottom:12px;">📖 타도! 폭주족 게임 가이드</h2>
+          <div style="font-size:12px; color:#cbd5e1; line-height:1.6; display:flex; flex-direction:column; gap:8px;">
+            <div style="background:#020617; padding:8px 10px; border-radius:8px; border:1px solid #1e293b;">
+              <b style="color:#facc15;">🎮 조작키</b><br />
+              • <b>WASD / 방향키</b>: 차량 조향 및 가속/후진<br />
+              • <b>Spacebar</b>: 니트로 부스터 (고속 돌진 & 충돌 무적 공격)<br />
+              • <b>P</b>: 일시정지 (모바일: 터치 조이스틱 & 버튼 지원)
+            </div>
+            <div style="background:#020617; padding:8px 10px; border-radius:8px; border:1px solid #1e293b;">
+              <b style="color:#34d399;">🚗 차량 5단계 진화</b><br />
+              • Lv.1 오토바이 → Lv.2 승용차 → Lv.3 배트 모빌 → Lv.4 텀블러 → Lv.5 배트모빌(아캄나이트)
+            </div>
+            <div style="background:#020617; padding:8px 10px; border-radius:8px; border:1px solid #1e293b;">
+              <b style="color:#f87171;">⚔️ 점수 및 승리 규칙</b><br />
+              • 일반 폭주족 처치 시 <b>+5점</b>, 보스 처치 시 <b>+100점</b>.<br />
+              • 보스는 일반 적보다 <b>10px 크고 7% 더 빠르게</b> 이동합니다.<br />
+              • 1차 보스(방탄차)와 2차 보스(조커 트럭)를 <b>모두 처치(2회)하면 미션 완수 & 랭킹 등록!</b>
+            </div>
+          </div>
+          <button id="btn-close-help" class="btn-action-primary" style="width:100%; margin-top:12px; background:#334155;">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pure Vanilla JavaScript Entry: Works natively in GitHub Pages root without build step! -->
+    <script src="./script.js"></script>
+  </body>
+</html>
